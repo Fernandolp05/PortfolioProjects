@@ -1,0 +1,191 @@
+SELECT * 
+FROM [Portfolio Covid Project]..['Covid Deaths-Pop$']
+WHERE (location like '%high%'
+    OR location like '%low%');
+
+--SELECT * 
+--FROM [Portfolio Covid Project]..['Covid Vaccinations$']
+
+SELECT location, date, total_cases, new_cases, total_deaths, new_deaths, population 
+FROM [Portfolio Covid Project]..['Covid Deaths-Pop$']
+WHERE continent is not null
+ORDER BY 1,2
+
+-- Looking at total cases vs total deasth
+-- Tried to format the numbers as %, but since the datatype is being cast from nvarchar to int, I couldn't get to a satisfatory number
+
+--ALtering datatypes
+
+ALTER TABLE [Portfolio Covid Project]..['Covid Deaths-Pop$']
+ALTER COLUMN total_cases float NULL
+
+ALTER TABLE [Portfolio Covid Project]..['Covid Deaths-Pop$']
+ALTER COLUMN total_deaths float NULL
+
+--SELECT location, date, total_deaths, total_cases, FORMAT((total_deaths/total_cases)*100, 'P') as Death_Percentage
+--FROM [Portfolio Covid Project]..['Covid Deaths-Pop$']
+--WHERE location like '%states%'
+--ORDER BY 1,2 
+
+
+-- Likelihood of dying if you contract Covid in your country
+
+SELECT location, date, total_cases, total_deaths, (total_deaths/total_cases)*100 as Death_Percentage
+FROM [Portfolio Covid Project]..['Covid Deaths-Pop$']
+--WHERE location like '%brazil%'
+WHERE continent is not null
+ORDER BY 1,2
+
+-- Looking at the Total Cases vs Population
+-- Shows what pecentage of population has gotten Covid.
+
+SELECT location, date, population, total_cases, (total_cases/population)*100 as InfectedPop_Percentage
+FROM [Portfolio Covid Project]..['Covid Deaths-Pop$']
+--WHERE location like '%states%'
+WHERE continent is not null
+ORDER BY 1,2
+
+
+-- Countries with the highest infection rate compared to population
+
+
+SELECT location, population, MAX(total_cases) as HighestInfectionCount, MAX((total_cases/population))*100 as InfectedPop_Percent
+FROM [Portfolio Covid Project]..['Covid Deaths-Pop$']
+--WHERE location like '%braz%'
+WHERE continent is not null
+GROUP BY location, population
+ORDER BY InfectedPop_Percent desc
+
+
+-- Looking into the countries with the highest death rate per population
+
+SELECT location, population, MAX(total_deaths) as HighestDeathCount
+FROM [Portfolio Covid Project]..['Covid Deaths-Pop$']
+--WHERE location like '%south%'
+WHERE continent is not null -- to remove unwanted locations like "South America" "Europe" and etc.. which are not countries.
+GROUP BY location, population
+ORDER BY 3 desc
+
+-- Looking into the countries with the highest death rate per population
+
+
+SELECT location, population, MAX(total_deaths) as HighestDeathCount, MAX((total_deaths/population))*100 as DeathCount_Percent
+FROM [Portfolio Covid Project]..['Covid Deaths-Pop$']
+--WHERE location like '%south%'
+WHERE continent is not null 
+GROUP BY location, population
+ORDER BY 3 desc
+
+
+-- Looking at Continents
+
+--SELECT location, MAX(total_deaths) as TotalDeathCount
+--FROM [Portfolio Covid Project]..['Covid Deaths-Pop$']
+----WHERE location like '%south%'
+--WHERE continent is null 
+--GROUP BY location
+--ORDER BY 2 desc
+
+-- Showing continents with highest death count
+
+SELECT continent, MAX(total_deaths) as TotalDeathCount
+FROM [Portfolio Covid Project]..['Covid Deaths-Pop$']
+--WHERE location like '%south%'
+WHERE continent is not null 
+GROUP BY continent
+ORDER BY 2 desc
+
+ALTER TABLE [Portfolio Covid Project]..['Covid Deaths-Pop$']
+ALTER COLUMN new_cases int NULL
+
+ALTER TABLE [Portfolio Covid Project]..['Covid Deaths-Pop$']
+ALTER COLUMN new_deaths int NULL
+
+-- Global numbers
+
+-- Shows the death_percentage for global new cases per day
+
+SELECT date, SUM(new_cases) as total_cases, SUM(new_deaths) as total_deaths, SUM(new_deaths) *100.0 / NULLIF(SUM(new_cases),0) as Death_Percentage
+FROM [Portfolio Covid Project]..['Covid Deaths-Pop$']
+--WHERE location like '%brazil%'
+WHERE continent is not null
+GROUP BY date
+ORDER BY 1 asc
+
+--Shows total death percentage in the world
+
+SELECT SUM(new_cases) as total_cases, SUM(new_deaths) as total_deaths, FORMAT((SUM(new_deaths) *1.0 / NULLIF(SUM(new_cases),0)), 'P1') as Death_Percentage
+FROM [Portfolio Covid Project]..['Covid Deaths-Pop$']
+--WHERE location like '%brazil%'
+WHERE continent is not null
+ORDER BY 1 asc
+
+--Looking at the percentage total population vs vaccinations (total amount of people in the world that has been vaccinated)
+-- DATA IS NOT ACCURATE AS THE TABLE DOESN'T MAKE DISTINCTION BETWEEN FIRST SHOTS AND BOOSTER IN THE NEW_VACS COLUMN
+
+--SELECT location, date, total_vaccinations
+--FROM [Portfolio Covid Project]..['Covid Vaccinations$']
+
+
+--ALTER TABLE [Portfolio Covid Project]..['Covid Vaccinations$']
+--ALTER COLUMN new_vaccinations float NULL
+
+--USING CTE
+
+WITH PopvsVac (Continent, Location, Date, Population, new_vaccinations, Vaccination_Progress)
+as
+(
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
+, SUM(new_vaccinations) OVER (Partition by dea.location ORDER BY dea.location, dea.date) as Vaccination_Progress
+FROM [Portfolio Covid Project]..['Covid Deaths-Pop$'] as dea
+JOIN [Portfolio Covid Project]..['Covid Vaccinations$'] as vac
+    ON dea.location = vac.location
+	and dea.date = vac.date
+WHERE dea.continent is not null
+--ORDER BY 2,3
+)
+SELECT *, FORMAT(((Vaccination_Progress/Population)*1.0), 'P1') as VacPopPercentage
+FROM PopvsVac
+
+
+-- USING TEMP TABLE
+
+DROP TABLE if exists #PercentVacProgress
+CREATE TABLE #PercentVacProgress
+(
+Continent nvarchar(255),
+location nvarchar(255),
+Date datetime,
+Population numeric,
+New_vaccinations numeric,
+Vaccination_Progress numeric
+)
+
+INSERT INTO #PercentVacProgress
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
+, SUM(new_vaccinations) OVER (Partition by dea.location ORDER BY dea.location, dea.date) as Vaccination_Progress
+FROM [Portfolio Covid Project]..['Covid Deaths-Pop$'] as dea
+JOIN [Portfolio Covid Project]..['Covid Vaccinations$'] as vac
+    ON dea.location = vac.location
+	and dea.date = vac.date
+--WHERE dea.continent is not null
+--ORDER BY 2,3
+
+SELECT *, FORMAT(((Vaccination_Progress/Population)*1.0), 'P1') as VacPopPercentage
+FROM #PercentVacProgress
+
+
+-- CREATING A VIEW to store data for later visualization
+
+CREATE VIEW PercentVacProgress as 
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
+, SUM(new_vaccinations) OVER (Partition by dea.location ORDER BY dea.location, dea.date) as Vaccination_Progress
+FROM [Portfolio Covid Project]..['Covid Deaths-Pop$'] as dea
+JOIN [Portfolio Covid Project]..['Covid Vaccinations$'] as vac
+    ON dea.location = vac.location
+	and dea.date = vac.date
+WHERE dea.continent is not null
+--ORDER BY 2,3
+
+SELECT *
+FROM PercentVacProgress
