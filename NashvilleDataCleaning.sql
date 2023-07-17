@@ -1,0 +1,169 @@
+-- Cleaning Data using SQL
+
+SELECT * 
+FROM PortfolioDataCleaningProject..NashvilleHousing
+
+-- Standardize Date Format
+
+SELECT SaleDateConverted, CONVERT(Date,SaleDate)
+FROM PortfolioDataCleaningProject..NashvilleHousing
+
+UPDATE PortfolioDataCleaningProject..NashvilleHousing
+SET SaleDate = CONVERT(Date,SaleDate)
+
+ALTER TABLE PortfolioDataCleaningProject..NashvilleHousing
+ADD SaleDateConverted Date;
+
+UPDATE PortfolioDataCleaningProject..NashvilleHousing
+SET SaleDateConverted = CONVERT(Date,SaleDate)
+
+
+-- Populate Property Address Data
+
+SELECT *
+FROM PortfolioDataCleaningProject..NashvilleHousing
+--WHERE PropertyAddress is null
+ORDER BY ParcelID
+
+SELECT a.ParcelID, a.PropertyAddress, b.ParcelID, b.PropertyAddress, ISNULL(a.PropertyAddress,b.PropertyAddress)
+FROM PortfolioDataCleaningProject..NashvilleHousing a
+JOIN PortfolioDataCleaningProject..NashvilleHousing b
+    ON a.ParcelID = b.ParcelID
+	AND a.[UniqueID ] <> b.[UniqueID ]
+WHERE a.PropertyAddress is null
+
+UPDATE a
+SET PropertyAddress = ISNULL(a.PropertyAddress,b.PropertyAddress)
+FROM PortfolioDataCleaningProject..NashvilleHousing a
+JOIN PortfolioDataCleaningProject..NashvilleHousing b
+    ON a.ParcelID = b.ParcelID
+	AND a.[UniqueID ] <> b.[UniqueID ]
+WHERE a.PropertyAddress is null
+
+
+-- Breaking out Address into individual Columns (Address, City, State)
+--Using Substrings
+
+
+SELECT PropertyAddress
+FROM PortfolioDataCleaningProject..NashvilleHousing
+
+SELECT
+SUBSTRING(PropertyAddress, 1, CHARINDEX(',', PropertyAddress) -1) as Address
+, SUBSTRING(PropertyAddress, CHARINDEX(',', PropertyAddress) +1, LEN(PropertyAddress)) as City
+FROM PortfolioDataCleaningProject..NashvilleHousing
+
+
+ALTER TABLE PortfolioDataCleaningProject..NashvilleHousing
+ADD PropertySplitAddress Nvarchar(255);
+
+UPDATE PortfolioDataCleaningProject..NashvilleHousing
+SET PropertySplitAddress = SUBSTRING(PropertyAddress, 1, CHARINDEX(',', PropertyAddress) -1)
+
+ALTER TABLE PortfolioDataCleaningProject..NashvilleHousing
+ADD PropertySplitCity Nvarchar(255);
+
+UPDATE PortfolioDataCleaningProject..NashvilleHousing
+SET PropertySplitCity = SUBSTRING(PropertyAddress, CHARINDEX(',', PropertyAddress) +1, LEN(PropertyAddress))
+
+
+SELECT *
+FROM PortfolioDataCleaningProject..NashvilleHousing
+
+
+-- Breaking down Owner address using parse
+
+
+SELECT OwnerAddress
+FROM PortfolioDataCleaningProject..NashvilleHousing
+
+SELECT
+PARSENAME(REPLACE(OwnerAddress, ',', '.') , 3)
+,PARSENAME(REPLACE(OwnerAddress, ',', '.') , 2)
+,PARSENAME(REPLACE(OwnerAddress, ',', '.') , 1)
+FROM PortfolioDataCleaningProject..NashvilleHousing
+
+
+ALTER TABLE PortfolioDataCleaningProject..NashvilleHousing
+ADD OwnerSplitAddress Nvarchar(255);
+
+UPDATE PortfolioDataCleaningProject..NashvilleHousing
+SET OwnerSplitAddress = PARSENAME(REPLACE(OwnerAddress, ',', '.') , 3)
+
+ALTER TABLE PortfolioDataCleaningProject..NashvilleHousing
+ADD OwnerSplitCity Nvarchar(255);
+
+UPDATE PortfolioDataCleaningProject..NashvilleHousing
+SET OwnerSplitCity = PARSENAME(REPLACE(OwnerAddress, ',', '.') , 2)
+
+ALTER TABLE PortfolioDataCleaningProject..NashvilleHousing
+ADD OwnerSplitState Nvarchar(255);
+
+UPDATE PortfolioDataCleaningProject..NashvilleHousing
+SET OwnerSplitState = PARSENAME(REPLACE(OwnerAddress, ',', '.') , 1)
+
+
+SELECT *
+FROM PortfolioDataCleaningProject..NashvilleHousing
+
+
+-- Change Y and N to Yes and No in "Sold as Vacant" field using Case Statement
+
+SELECT DISTINCT(SoldAsVacant), COUNT(SoldAsVacant)
+FROM PortfolioDataCleaningProject..NashvilleHousing
+GROUP BY SoldAsVacant
+ORDER BY 2
+
+
+SELECT SoldAsVacant
+, CASE WHEN SoldAsVacant = 'Y' THEN 'Yes'
+       WHEN SoldAsVacant = 'N' THEN 'No'
+	   ELSE SoldAsVacant
+	   END
+FROM PortfolioDataCleaningProject..NashvilleHousing
+
+
+UPDATE PortfolioDataCleaningProject..NashvilleHousing
+SET SoldAsVacant = CASE WHEN SoldAsVacant = 'Y' THEN 'Yes'
+       WHEN SoldAsVacant = 'N' THEN 'No'
+	   ELSE SoldAsVacant
+	   END
+
+
+-- Removing duplicates 
+
+
+WITH RowNumCTE AS(
+SELECT *, 
+    ROW_NUMBER() OVER (
+	PARTITION BY ParcelID,
+	             PropertyAddress,
+				 SalePrice,
+				 SaleDate,
+				 LegalReference
+				 ORDER BY 
+				      UniqueID
+					  ) as row_num
+
+FROM PortfolioDataCleaningProject..NashvilleHousing
+--ORDER BY ParcelID
+)
+SELECT *
+FROM RowNumCTE
+WHERE row_num <> '1'
+ORDER BY PropertyAddress
+
+
+
+SELECT *
+FROM PortfolioDataCleaningProject..NashvilleHousing
+
+
+-- Delete Unused columns
+
+
+SELECT *
+FROM PortfolioDataCleaningProject..NashvilleHousing
+
+ALTER TABLE PortfolioDataCleaningProject..NashvilleHousing
+DROP COLUMN OwnerAddress, TaxDistrict, PropertyAddress, SaleDate
