@@ -1,0 +1,134 @@
+# import libraries
+
+from bs4 import BeautifulSoup
+import requests 
+import smtplib
+import time
+import datetime
+
+# Connect to website
+
+URL = "https://www.amazon.com.br/Olimpica-Crossfit-Suspens%C3%A3o-Odin-Fit/dp/B07NLBNS4R/ref=sr_1_5?__mk_pt_BR=%C3%85M%C3%85%C5%BD%C3%95%C3%91&crid=1MDBQWT1M084V&keywords=argolas+ginastica&qid=1689789846&sprefix=argolas+ginasti%2Caps%2C368&sr=8-5&ufe=app_do%3Aamzn1.fos.6a09f7ec-d911-4889-ad70-de8dd83c8a74"
+
+headers = {"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0"}
+
+page = requests.get(URL, headers=headers)
+
+soup1 = BeautifulSoup(page.content, "html.parser")
+
+soup2 = BeautifulSoup(soup1.prettify(), 'html.parser')
+
+title = soup2.find(id='productTitle').get_text()
+
+div1 = soup2.find("div", class_= "a-section a-spacing-none aok-align-center")
+
+price = div1.find('span', {'class': 'a-offscreen'}).get_text()
+
+a1 = soup2.find("a", class_= "a-popover-trigger a-declarative")
+
+rating = a1.find('span', {'class': 'a-size-base a-color-base'}).get_text()
+
+div2 = soup2.find("div", id='availability')
+
+stock = div2.find('span', {'class': 'a-size-medium a-color-success'}).get_text()
+
+print(title)
+print(price)
+print(rating)
+print(stock)
+
+
+price = price.strip()[2:]
+title = title.strip()
+rating = rating.strip()
+stock = stock.strip()
+
+print(title)
+print(price)
+print(rating)
+print(stock)
+
+type(title)
+type(price)
+type(rating)
+type(stock)
+
+import datetime
+
+today = datetime.date.today()
+
+print (today)
+
+# create a csv with the data, recurring
+
+import csv
+
+header = ['Title', 'Price', 'Rating', 'Stock', 'Date']
+data = [title,price,rating,stock, today]
+
+type(data)
+
+#with open('GymRingsAmazon.csv', 'w', newline='', encoding='UTF8') as f:
+    #writer = csv.writer(f)
+    #writer.writerow(header)
+    #writer.writerow(data)
+
+
+
+
+
+#appending data to the csv
+
+with open('GymRingsAmazon.csv', 'a+', newline='', encoding='UTF8') as f:
+    writer = csv.writer(f)
+    writer.writerow(data)
+
+
+def check_price():
+    URL = "https://www.amazon.com.br/Olimpica-Crossfit-Suspens%C3%A3o-Odin-Fit/dp/B07NLBNS4R/ref=sr_1_5?__mk_pt_BR=%C3%85M%C3%85%C5%BD%C3%95%C3%91&crid=1MDBQWT1M084V&keywords=argolas+ginastica&qid=1689789846&sprefix=argolas+ginasti%2Caps%2C368&sr=8-5&ufe=app_do%3Aamzn1.fos.6a09f7ec-d911-4889-ad70-de8dd83c8a74"
+
+    headers = {"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0"}
+
+    page = requests.get(URL, headers=headers)
+
+    soup1 = BeautifulSoup(page.content, "html.parser")
+
+    soup2 = BeautifulSoup(soup1.prettify(), 'html.parser')
+
+    title = soup2.find(id='productTitle').get_text()
+
+    div1 = soup2.find("div", class_= "a-section a-spacing-none aok-align-center")
+
+    price = div1.find('span', {'class': 'a-offscreen'}).get_text()
+
+    a1 = soup2.find("a", class_= "a-popover-trigger a-declarative")
+
+    rating = a1.find('span', {'class': 'a-size-base a-color-base'}).get_text()
+
+    div2 = soup2.find("div", id='availability')
+
+    stock = div2.find('span', {'class': 'a-size-medium a-color-success'}).get_text()
+    
+    price = price.strip()[2:]
+    title = title.strip()
+    rating = rating.strip()
+    stock = stock.strip()
+    
+    import datetime
+
+    today = datetime.date.today()
+    
+    import csv
+
+    header = ['Title', 'Price', 'Rating', 'Stock', 'Date']
+    data = [title,price,rating,stock,today]
+    
+    with open('GymRingsAmazon.csv', 'a+', newline='', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        writer.writerow(data)
+        
+        
+
+while(True):
+    check_price()
+    time.sleep(10)
